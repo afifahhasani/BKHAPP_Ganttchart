@@ -492,7 +492,7 @@
         <button onclick="exportXLSX();toggleExportMenu()" style="display:block;width:100%;padding:9px 16px;background:none;border:none;color:#e6edf3;font-family:var(--font-main);font-size:.82rem;font-weight:500;cursor:pointer;text-align:left;border-radius:0 0 6px 6px;" onmouseover="this.style.background='rgba(88,166,255,.1)'" onmouseout="this.style.background='none'">📊 Export as Excel</button>
       </div>
     </div>
-    <button class="btn btn-primary" onclick="openModal()">+ Add Task</button>
+
   </div>
 </header>
 
@@ -807,38 +807,30 @@ function renderGantt() {
 
       /* project cell — only on first row of group */
       const projCell = document.createElement('div');
-      projCell.className = 'bd-cell col-project editable project-label';
+      projCell.className = 'bd-cell col-project project-label';
       if (ti === 0) {
         projCell.textContent = project;
-        projCell.contentEditable = true;
-        projCell.addEventListener('blur', e => {
-          const idx = TASKS.indexOf(task);
-          // update all tasks in same project
-          const oldName = project;
-          TASKS.forEach(t => { if (t.project === oldName) t.project = e.target.textContent.trim(); });
-        });
+
       }
       row.appendChild(projCell);
 
       /* task cell */
       const taskCell = document.createElement('div');
-      taskCell.className = 'bd-cell col-task editable';
+      taskCell.className = 'bd-cell col-task';
       const taskSpan = document.createElement('span');
       taskSpan.className = 'task-text' + (task.status === 'Pending' && ti > 0 ? ' note' : '');
       taskSpan.textContent = task.task;
-      taskSpan.contentEditable = true;
-      taskSpan.addEventListener('blur', e => { task.task = e.target.textContent.trim(); });
+
       taskCell.appendChild(taskSpan);
       row.appendChild(taskCell);
 
       /* PIC */
       const picCell = document.createElement('div');
-      picCell.className = 'bd-cell col-pic editable';
+      picCell.className = 'bd-cell col-pic';
       const picSpan = document.createElement('span');
       picSpan.className = 'pic-text';
       picSpan.textContent = task.pic;
-      picSpan.contentEditable = true;
-      picSpan.addEventListener('blur', e => { task.pic = e.target.textContent.trim(); });
+
       picCell.appendChild(picSpan);
       row.appendChild(picCell);
 
@@ -848,12 +840,7 @@ function renderGantt() {
       const badge = document.createElement('span');
       badge.className = 'badge ' + (task.status === 'Done' ? 'done' : 'pending');
       badge.textContent = task.status;
-      badge.style.cursor = 'pointer';
-      badge.title = 'Click to toggle status';
-      badge.addEventListener('click', () => {
-        task.status = task.status === 'Done' ? 'Pending' : 'Done';
-        renderGantt();
-      });
+      badge.style.cursor = 'default';
       statCell.appendChild(badge);
       row.appendChild(statCell);
 
