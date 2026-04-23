@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Gantt Chart</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ─── CSS Variables ─────────────────────────── */
+  :root {
+    --bg:           #0d1117;
+    --surface:      #161b22;
+    --surface-2:    #1c2230;
+    --border:       #2a3340;
+    --border-light: #3a4a5a;
+    --text-primary: #e6edf3;
+    --text-secondary:#8b96a5;
+    --text-muted:   #586374;
+    --accent:       #58a6ff;
+    --accent-glow:  rgba(88,166,255,.18);
+    --done:         #3fb950;
+    --done-bg:      rgba(63,185,80,.12);
+    --pending:      #f0883e;
+    --pending-bg:   rgba(240,136,62,.12);
+    --bar-done:     #238636;
+    --bar-pending:  #d29922;
+    --bar-overdue:  #da3633;
+    --today-line:   #f0883e;
+    --row-hover:    rgba(88,166,255,.06);
+    --radius:       6px;
+    --radius-lg:    10px;
+    --font-main:    'DM Sans', sans-serif;
+    --font-mono:    'DM Mono', monospace;
+    --shadow:       0 4px 24px rgba(0,0,0,.4);
+  }
+
+  /* ─── Reset & Base ──────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 14px; }
+  body {
+    font-family: var(--font-main);
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── Header ────────────────────────────────── */
+  .app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px 18px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, #161b22 0%, #1a2030 100%);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+  }
+  .app-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: .02em;
+    color: var(--text-primary);
+  }
+  .app-subtitle {
+    font-size: .78rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-left: 4px;
+  }
+  .header-actions { display: flex; align-items: center; gap: 10px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 16px;
+    border-radius: var(--radius);
+    font-family: var(--font-main);
+    font-size: .82rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all .18s ease;
+  }
+  .btn-ghost {
+    background: transparent;
+    border-color: var(--border-light);
+    color: var(--text-secondary);
+  }
+  .btn-ghost:hover { background: var(--surface-2); color: var(--text-primary); border-color: var(--accent); }
+  .btn-primary {
+    background: var(--accent);
+    color: #0d1117;
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: #79b8ff; box-shadow: 0 0 14px var(--accent-glow); }
+  .today-badge {
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    color: var(--text-muted);
+    background: var(--surface-2);
+    padding: 5px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+
+  /* ─── Legend ─────────────────────────────────── */
+  .legend-bar {
+    display: flex; align-items: center; gap: 24px;
+    padding: 12px 32px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: .78rem; color: var(--text-secondary); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+  .legend-dot.done    { background: var(--bar-done); }
+  .legend-dot.pending { background: var(--bar-pending); }
+  .legend-dot.overdue { background: var(--bar-overdue); }
+  .legend-dot.today   { background: var(--today-line); width: 2px; height: 14px; border-radius: 1px; }
+  .legend-sep { width: 1px; height: 16px; background: var(--border); }
+
+  /* ─── Main Layout ───────────────────────────── */
+  .gantt-wrapper {
+    display: flex;
+    flex-direction: column;
+    padding: 24px 32px;
+    gap: 20px;
+  }
+
+  /* ─── Controls ──────────────────────────────── */
+  .controls {
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  }
+  .control-group { display: flex; align-items: center; gap: 6px; }
+  .control-label { font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
+  select, input[type="text"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    font-family: var(--font-main);
+    font-size: .82rem;
+    outline: none;
+    transition: border-color .15s;
+  }
+  select:focus, input[type="text"]:focus { border-color: var(--accent); }
+  .controls-right { margin-left: auto; display: flex; gap: 10px; }
+
+  /* ─── Gantt Table Shell ─────────────────────── */
+  .gantt-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  /* ─── Split layout: info panel + chart ──────── */
+  .gantt-scroll { overflow-x: auto; }
+  .gantt-table {
+    display: grid;
+    min-width: 900px;
+  }
+
+  /* Header row */
+  .gantt-head {
+    display: contents;
+  }
+  .gantt-head-row {
+    display: flex;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  /* Info columns */
+  .col-project  { width: 150px; min-width: 150px; }
+  .col-task     { width: 280px; min-width: 220px; }
+  .col-pic      { width: 140px; min-width: 120px; }
+  .col-status   { width: 90px;  min-width: 80px;  }
+  .col-chart    { flex: 1; min-width: 350px; }
+
+  .gh-cell {
+    padding: 10px 14px;
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-right: 1px solid var(--border);
+    display: flex; align-items: center;
+  }
+  .gh-cell:last-child { border-right: none; }
+
+  /* Month + day headers inside chart column */
+  .chart-header { flex: 1; display: flex; flex-direction: column; padding: 0; }
+  .months-row { display: flex; border-bottom: 1px solid var(--border); }
+  .month-block {
+    display: flex; align-items: center; justify-content: center;
+    font-size: .73rem; font-weight: 600; letter-spacing: .05em;
+    color: var(--text-secondary); text-transform: uppercase;
+    padding: 5px 4px; border-right: 1px solid var(--border);
+  }
+  .month-block:last-child { border-right: none; }
+  .days-row { display: flex; }
+  .day-cell {
+    flex: 1; text-align: center;
+    font-family: var(--font-mono);
+    font-size: .65rem; color: var(--text-muted);
+    padding: 3px 0;
+    border-right: 1px solid var(--border);
+    position: relative;
+  }
+  .day-cell.today-col { background: rgba(240,136,62,.08); color: var(--today-line); font-weight: 600; }
+  .day-cell:last-child { border-right: none; }
+
+  /* ─── Body Rows ─────────────────────────────── */
+  .gantt-body { position: relative; }
+  .project-group { border-bottom: 1px solid var(--border); }
+  .project-group:last-child { border-bottom: none; }
+
+  .gantt-row {
+    display: flex;
+    border-bottom: 1px solid rgba(42,51,64,.5);
+    transition: background .12s;
+    position: relative;
+  }
+  .gantt-row:hover { background: var(--row-hover); }
+  .gantt-row:last-child { border-bottom: none; }
+  .gantt-row.group-header-row {
+    background: rgba(28,34,48,.7);
+  }
+
+  .bd-cell {
+    padding: 9px 14px;
+    border-right: 1px solid var(--border);
+    display: flex; align-items: center;
+    font-size: .82rem;
+  }
+  .bd-cell:last-child { border-right: none; }
+  .bd-cell.editable { cursor: text; }
+  .bd-cell.editable:hover { background: rgba(88,166,255,.05); }
+  [contenteditable="true"]:focus {
+    outline: none;
+    background: rgba(88,166,255,.1) !important;
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  /* Project label */
+  .project-label {
+    font-weight: 600; font-size: .83rem;
+    color: var(--accent);
+    writing-mode: horizontal-tb;
+  }
+  .project-cell-merge {
+    display: flex; align-items: center; justify-content: flex-start;
+    padding: 0 14px;
+    width: 150px; min-width: 150px;
+    border-right: 1px solid var(--border);
+    background: rgba(88,166,255,.04);
+  }
+
+  /* Status badge */
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: .72rem; font-weight: 600;
+    letter-spacing: .02em;
+  }
+  .badge.done    { background: var(--done-bg); color: var(--done); }
+  .badge.pending { background: var(--pending-bg); color: var(--pending); }
+
+  /* PIC */
+  .pic-text { font-size: .78rem; color: var(--text-secondary); }
+
+  /* Task text */
+  .task-text { font-size: .81rem; line-height: 1.4; color: var(--text-primary); }
+  .task-text.note { color: var(--pending); font-size: .77rem; font-style: italic; }
+
+  /* ─── Chart Cell ────────────────────────────── */
+  .chart-cell {
+    flex: 1; position: relative; min-height: 38px;
+    display: flex; align-items: center;
+    padding: 0;
+    overflow: hidden;
+  }
+  .chart-cell-bg {
+    position: absolute; inset: 0;
+    display: flex;
+  }
+  .chart-cell-bg-day {
+    flex: 1;
+    border-right: 1px solid rgba(42,51,64,.3);
+  }
+  .chart-cell-bg-day.today-col { background: rgba(240,136,62,.05); }
+  .chart-cell-bg-day:last-child { border-right: none; }
+
+  .gantt-bar {
+    position: absolute;
+    height: 18px;
+    border-radius: 4px;
+    display: flex; align-items: center;
+    padding: 0 6px;
+    font-family: var(--font-mono);
+    font-size: .65rem;
+    font-weight: 500;
+    color: rgba(255,255,255,.85);
+    overflow: hidden;
+    white-space: nowrap;
+    transition: filter .15s, transform .12s;
+    cursor: pointer;
+    z-index: 2;
+    box-shadow: 0 2px 6px rgba(0,0,0,.3);
+  }
+  .gantt-bar:hover { filter: brightness(1.15); transform: scaleY(1.08); }
+  .gantt-bar.done    { background: linear-gradient(90deg, #1a6e2e, var(--bar-done)); }
+  .gantt-bar.pending { background: linear-gradient(90deg, #9a6e00, var(--bar-pending)); }
+  .gantt-bar.overdue { background: linear-gradient(90deg, #921e1e, var(--bar-overdue)); }
+
+  /* Today vertical line */
+  .today-line-overlay {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: var(--today-line);
+    z-index: 5;
+    pointer-events: none;
+    box-shadow: 0 0 6px var(--today-line);
+  }
+
+  /* ─── Target marker ────────────────────────── */
+  .target-marker {
+    position: absolute;
+    top: 50%;
+    transform: translateX(-50%) translateY(-50%) rotate(45deg);
+    width: 10px;
+    height: 10px;
+    background: #e879f9;
+    border: 2px solid #f0abfc;
+    border-radius: 2px;
+    z-index: 6;
+    pointer-events: auto;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(232,121,249,.6);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .target-marker:hover {
+    transform: translateX(-50%) translateY(-50%) rotate(45deg) scale(1.35);
+    box-shadow: 0 0 14px rgba(232,121,249,.9);
+  }
+  .target-label {
+    position: absolute;
+    top: calc(50% + 10px);
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: .6rem;
+    color: #e879f9;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 6;
+    text-shadow: 0 1px 4px rgba(0,0,0,.8);
+  }
+  /* legend dot for target */
+  .legend-dot.target { background: #e879f9; width: 8px; height: 8px; border-radius: 2px; transform: rotate(45deg); }
+
+  /* ─── Tooltip ───────────────────────────────── */
+  .tooltip {
+    position: fixed;
+    background: #1c2230;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 10px 14px;
+    font-size: .78rem;
+    color: var(--text-primary);
+    box-shadow: 0 8px 28px rgba(0,0,0,.5);
+    z-index: 9999;
+    pointer-events: none;
+    display: none;
+    max-width: 240px;
+    line-height: 1.6;
+  }
+  .tooltip.visible { display: block; }
+  .tooltip-title { font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+  .tooltip-row { display: flex; gap: 6px; }
+  .tooltip-label { color: var(--text-muted); min-width: 80px; }
+
+  /* ─── Add Task Modal ────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.65);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: none; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 28px 32px;
+    width: 480px;
+    max-width: 95vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    animation: slideUp .22s ease;
+  }
+  @keyframes slideUp {
+    from { opacity:0; transform:translateY(14px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .modal-title { font-size: 1rem; font-weight: 600; margin-bottom: 20px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-label { font-size: .76rem; color: var(--text-muted); font-weight: 500; letter-spacing: .04em; text-transform: uppercase; }
+  .form-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 8px 11px;
+    border-radius: var(--radius);
+    font-family: var(--font-main);
+    font-size: .84rem;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+  /* ─── Scrollbar ─────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  /* ─── Empty state ───────────────────────────── */
+  .empty-chart { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: .75rem; }
+
+  /* responsive */
+  @media (max-width: 700px) {
+    .gantt-wrapper { padding: 16px; }
+    .app-header { padding: 14px 16px; }
+  }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+@media print {
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body { background: #0d1117 !important; margin: 0; padding: 0; }
+  .app-header { position: relative !important; }
+  .header-actions { display: none !important; }
+  .controls { display: none !important; }
+  .legend-bar { break-inside: avoid; }
+  .gantt-wrapper { padding: 12px !important; }
+  .gantt-scroll { overflow: visible !important; }
+  .gantt-table { min-width: unset !important; }
+  .gantt-container { box-shadow: none !important; border: 1px solid #2a3340 !important; }
+  .project-group { break-inside: avoid; }
+  @page { size: A3 landscape; margin: 10mm; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────── -->
+<header class="app-header">
+  <div class="header-left">
+    <div class="logo-dot"></div>
+    <span class="app-title">Project Tracker</span>
+    <span class="app-subtitle">— Gantt View</span>
+  </div>
+  <div class="header-actions">
+    <span class="today-badge" id="todayLabel"></span>
+    <div style="position:relative;display:inline-block" id="exportMenu">
+      <button class="btn btn-ghost" onclick="toggleExportMenu()" id="exportBtn">⬇ Export ▾</button>
+      <div id="exportDropdown" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:#1c2230;border:1px solid #3a4a5a;border-radius:6px;min-width:160px;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.5);">
+        <button onclick="exportPDF();toggleExportMenu()" style="display:block;width:100%;padding:9px 16px;background:none;border:none;color:#e6edf3;font-family:var(--font-main);font-size:.82rem;font-weight:500;cursor:pointer;text-align:left;border-radius:6px 6px 0 0;" onmouseover="this.style.background='rgba(88,166,255,.1)'" onmouseout="this.style.background='none'">📄 Export as PDF</button>
+        <button onclick="exportXLSX();toggleExportMenu()" style="display:block;width:100%;padding:9px 16px;background:none;border:none;color:#e6edf3;font-family:var(--font-main);font-size:.82rem;font-weight:500;cursor:pointer;text-align:left;border-radius:0 0 6px 6px;" onmouseover="this.style.background='rgba(88,166,255,.1)'" onmouseout="this.style.background='none'">📊 Export as Excel</button>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="openModal()">+ Add Task</button>
+  </div>
+</header>
+
+<!-- ── Legend ─────────────────────────────────── -->
+<div class="legend-bar">
+  <span class="legend-item"><span class="legend-dot done"></span>Completed</span>
+  <span class="legend-item"><span class="legend-dot pending"></span>In Progress / Pending</span>
+  <span class="legend-item"><span class="legend-dot overdue"></span>Overdue</span>
+  <div class="legend-sep"></div>
+  <span class="legend-item"><span class="legend-dot today"></span>Today</span>
+  <div class="legend-sep"></div>
+  <span class="legend-item" style="color:var(--text-muted);font-size:.76rem;">Click any cell to edit inline · Hover bars for details</span>
+</div>
+
+<!-- ── Main ───────────────────────────────────── -->
+<div class="gantt-wrapper">
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="control-group">
+      <span class="control-label">Filter:</span>
+      <select id="filterStatus" onchange="renderGantt()">
+        <option value="all">All Status</option>
+        <option value="Done">Done</option>
+        <option value="Pending">Pending</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <span class="control-label">Project:</span>
+      <select id="filterProject" onchange="renderGantt()">
+        <option value="all">All Projects</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <span class="control-label">Search:</span>
+      <input type="text" id="searchInput" placeholder="Search tasks…" oninput="renderGantt()" style="width:180px;">
+    </div>
+    <div class="controls-right">
+      <button class="btn btn-ghost" onclick="zoomOut()">− Zoom</button>
+      <button class="btn btn-ghost" onclick="zoomIn()">+ Zoom</button>
+    </div>
+  </div>
+
+  <!-- Gantt Container -->
+  <div class="gantt-container">
+    <div class="gantt-scroll">
+      <div class="gantt-table" id="ganttTable"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tooltip ────────────────────────────────── -->
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-title" id="tt-title"></div>
+  <div class="tooltip-row"><span class="tooltip-label">Project:</span><span id="tt-project"></span></div>
+  <div class="tooltip-row"><span class="tooltip-label">Updated:</span><span id="tt-updated"></span></div>
+  <div class="tooltip-row"><span class="tooltip-label">Completed:</span><span id="tt-completed"></span></div>
+  <div class="tooltip-row"><span class="tooltip-label">PIC:</span><span id="tt-pic"></span></div>
+  <div class="tooltip-row"><span class="tooltip-label">Status:</span><span id="tt-status"></span></div>
+</div>
+
+<!-- ── Add Task Modal ─────────────────────────── -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-title">Add New Task</div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label class="form-label">Task Description</label>
+        <input class="form-input" id="f-task" placeholder="Describe the task…">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Project</label>
+        <select class="form-input" id="f-project"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIC</label>
+        <input class="form-input" id="f-pic" placeholder="e.g. Jagan / Afifah">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date Updated</label>
+        <input class="form-input" id="f-updated" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date Completed</label>
+        <input class="form-input" id="f-completed" type="date">
+      </div>
+      <div class="form-group full">
+        <label class="form-label">Status</label>
+        <select class="form-input" id="f-status">
+          <option>Done</option>
+          <option>Pending</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="addTask()">Add Task</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════
+   DATA
+════════════════════════════════════════════════ */
+const TASKS = [
+  /* Android Application */
+  { project:'Android Application', task:'Move the testing database to AWS database server where current db is running', updated:'2026-03-30', completed:'2026-03-30', status:'Done', pic:'Jagan / Mohan' },
+  { project:'Android Application', task:'Move UAT to AWS server test-ecas.bkhicd.com', updated:'2026-04-15', completed:'2026-04-15', status:'Done', pic:'Jagan / Mohan' },
+  { project:'Android Application', task:'Create Infobip Account', updated:'2026-04-21', completed:'2026-04-21', status:'Done', pic:'Syahiran' },
+  { project:'Android Application', task:'Acquire access to Meta Business Portfolio', updated:'2026-04-21', completed:'2026-04-20', status:'Done', pic:'Syahiran' },
+  { project:'Android Application', task:'Receive new maxis physical sim', updated:'2026-04-21', completed:'2026-04-21', status:'Done', pic:'Syahiran' },
+  { project:'Android Application', task:'Pending Maxis side to activate sim', updated:'2026-04-22', completed:'2026-04-22', status:'Done', pic:'Syahiran' },
+  { project:'Android Application', task:'Connect Infobip, Whatsapp Business and Meta Business', updated:'2026-04-22', completed:'2026-04-22', status:'Done', pic:'Syahiran' },
+  { project:'Android Application', task:'Provide Infobip info to Tootker to connect API', updated:'2026-04-22', completed:'2026-04-22', status:'Done', pic:'Syahiran' },
+  { project:'Android Application', task:'Access Provided, Template Registration', updated:'2026-04-23', completed:'', status:'Pending', pic:'Jagan', target:'' },
+
+  /* OOCL System Integration */
+  { project:'OOCL System Integration (CODECO)', task:'Create sample codeco for OOCL integration', updated:'2026-03-29', completed:'2026-04-14', status:'Done', pic:'Afifah / Michael' },
+  { project:'OOCL System Integration (CODECO)', task:'Sample sent to Jagan. Pending Jagan site to implement. Target 29/04/2026', updated:'2026-04-20', completed:'', status:'Pending', pic:'Afifah / Jagan', target:'2026-04-29' },
+
+  /* Container Assignment */
+  { project:'Container Assignment', task:'Tested the API – Only return 1 container. Jagan will make so user can choose from list of containers. Targeted to deliver to UAT by 24/04/2026', updated:'2026-04-20', completed:'', status:'Pending', pic:'Jagan', target:'2026-04-24' },
+
+  /* Forecast Screen */
+  { project:'Forecast Screen', task:'Supposed to be delivered on 17/04 but delayed as we prioritize CODECO integration first', updated:'2026-04-21', completed:'2026-04-21', status:'Done', pic:'' },
+  { project:'Forecast Screen', task:'Will start on 30/04/2026 and takes 5 days (Target 7 May 2026 for testing)', updated:'2026-04-30', completed:'', status:'Pending', pic:'Afifah / Jagan', target:'2026-05-07' },
+
+  /* Customer Dashboard */
+  { project:'Customer Dashboard', task:'Requirements Gathering', updated:'2026-04-21', completed:'2026-04-21', status:'Done', pic:'Afifah / Rishaa / Syahiran' },
+  { project:'Customer Dashboard', task:'Design Dashboard', updated:'2026-04-21', completed:'2026-04-21', status:'Done', pic:'Afifah / Rishaa / Syahiran' },
+  { project:'Customer Dashboard', task:'Will start on 8 May 2026 and will take 5 days (Target 14 May for testing)', updated:'2026-05-08', completed:'', status:'Pending', pic:'Afifah / Jagan', target:'2026-05-14' },
+];
+
+/* ════════════════════════════════════════════════
+   TIME RANGE
+════════════════════════════════════════════════ */
+const TODAY = new Date('2026-04-23');
+
+function fmtDate(d) {
+  if (!d) return '';
+  if (typeof d === 'string') d = new Date(d);
+  return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+// Auto-compute range from actual task dates + padding
+function computeRange() {
+  const dates = TASKS.flatMap(t => [t.updated, t.completed, t.target].filter(Boolean).map(d => new Date(d)));
+  dates.push(TODAY);
+  const min = new Date(Math.min(...dates));
+  const max = new Date(Math.max(...dates));
+  min.setDate(min.getDate() - 4);
+  max.setDate(max.getDate() + 6);
+  return { start: min, end: max };
+}
+const _range = computeRange();
+let RANGE_START = _range.start;
+let RANGE_END   = _range.end;
+let DAY_PX = 28; // px per day, controlled by zoom
+
+function daysBetween(a, b) {
+  return Math.round((b - a) / 86400000);
+}
+function totalDays() {
+  return daysBetween(RANGE_START, RANGE_END);
+}
+
+/* ════════════════════════════════════════════════
+   HEADER LABEL
+════════════════════════════════════════════════ */
+document.getElementById('todayLabel').textContent =
+  TODAY.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+
+/* ════════════════════════════════════════════════
+   POPULATE FILTERS
+════════════════════════════════════════════════ */
+function populateFilters() {
+  const projects = [...new Set(TASKS.map(t => t.project))];
+  const sel = document.getElementById('filterProject');
+  sel.innerHTML = '<option value="all">All Projects</option>';
+  projects.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p; o.textContent = p;
+    sel.appendChild(o);
+  });
+  const fSel = document.getElementById('f-project');
+  fSel.innerHTML = '';
+  projects.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p; o.textContent = p;
+    fSel.appendChild(o);
+  });
+}
+
+/* ════════════════════════════════════════════════
+   RENDER
+════════════════════════════════════════════════ */
+function getFilteredTasks() {
+  const fs  = document.getElementById('filterStatus').value;
+  const fp  = document.getElementById('filterProject').value;
+  const fq  = document.getElementById('searchInput').value.toLowerCase();
+  return TASKS.filter(t =>
+    (fs === 'all' || t.status === fs) &&
+    (fp === 'all' || t.project === fp) &&
+    (!fq || t.task.toLowerCase().includes(fq) || t.project.toLowerCase().includes(fq))
+  );
+}
+
+function buildDays() {
+  const days = [];
+  const d = new Date(RANGE_START);
+  while (d <= RANGE_END) {
+    days.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
+}
+
+function buildMonthBlocks(days) {
+  const blocks = [];
+  let cur = null;
+  days.forEach((d, i) => {
+    const key = d.getFullYear() + '-' + d.getMonth();
+    if (key !== cur) {
+      blocks.push({ label: d.toLocaleDateString('en-GB', { month:'short', year:'numeric' }), count: 0, start: i });
+      cur = key;
+    }
+    blocks[blocks.length - 1].count++;
+  });
+  return blocks;
+}
+
+function renderGantt() {
+  const table = document.getElementById('ganttTable');
+  table.innerHTML = '';
+  const tasks  = getFilteredTasks();
+  const days   = buildDays();
+  const months = buildMonthBlocks(days);
+  const totalPx = days.length * DAY_PX;
+  const todayOff = daysBetween(RANGE_START, TODAY);
+
+  /* ── Header row ── */
+  const headRow = document.createElement('div');
+  headRow.className = 'gantt-head-row';
+
+  // fixed info cols
+  ['Project','Task / Progress','PIC','Status'].forEach((lbl, i) => {
+    const c = document.createElement('div');
+    c.className = 'gh-cell ' + ['col-project','col-task','col-pic','col-status'][i];
+    c.textContent = lbl;
+    headRow.appendChild(c);
+  });
+
+  // chart header
+  const chartHead = document.createElement('div');
+  chartHead.className = 'gh-cell col-chart';
+  chartHead.style.padding = '0';
+  chartHead.style.flexDirection = 'column';
+  chartHead.style.alignItems = 'stretch';
+
+  const chartHdrInner = document.createElement('div');
+  chartHdrInner.className = 'chart-header';
+
+  // months
+  const mRow = document.createElement('div');
+  mRow.className = 'months-row';
+  months.forEach(m => {
+    const mb = document.createElement('div');
+    mb.className = 'month-block';
+    mb.style.width = (m.count * DAY_PX) + 'px';
+    mb.style.flexShrink = '0';
+    mb.textContent = m.label;
+    mRow.appendChild(mb);
+  });
+  chartHdrInner.appendChild(mRow);
+
+  // days
+  const dRow = document.createElement('div');
+  dRow.className = 'days-row';
+  days.forEach((d, i) => {
+    const dc = document.createElement('div');
+    dc.className = 'day-cell' + (i === todayOff ? ' today-col' : '');
+    dc.style.width = DAY_PX + 'px';
+    dc.style.flexShrink = '0';
+    dc.textContent = d.getDate();
+    dRow.appendChild(dc);
+  });
+  chartHdrInner.appendChild(dRow);
+  chartHead.appendChild(chartHdrInner);
+  headRow.appendChild(chartHead);
+  table.appendChild(headRow);
+
+  /* ── Body ── */
+  const body = document.createElement('div');
+  body.className = 'gantt-body';
+
+  // Group tasks by project
+  const groups = {};
+  tasks.forEach(t => {
+    if (!groups[t.project]) groups[t.project] = [];
+    groups[t.project].push(t);
+  });
+
+  Object.entries(groups).forEach(([project, ptasks]) => {
+    const grp = document.createElement('div');
+    grp.className = 'project-group';
+
+    ptasks.forEach((task, ti) => {
+      const row = document.createElement('div');
+      row.className = 'gantt-row';
+      if (ti === 0) row.classList.add('group-header-row');
+
+      /* project cell — only on first row of group */
+      const projCell = document.createElement('div');
+      projCell.className = 'bd-cell col-project editable project-label';
+      if (ti === 0) {
+        projCell.textContent = project;
+        projCell.contentEditable = true;
+        projCell.addEventListener('blur', e => {
+          const idx = TASKS.indexOf(task);
+          // update all tasks in same project
+          const oldName = project;
+          TASKS.forEach(t => { if (t.project === oldName) t.project = e.target.textContent.trim(); });
+        });
+      }
+      row.appendChild(projCell);
+
+      /* task cell */
+      const taskCell = document.createElement('div');
+      taskCell.className = 'bd-cell col-task editable';
+      const taskSpan = document.createElement('span');
+      taskSpan.className = 'task-text' + (task.status === 'Pending' && ti > 0 ? ' note' : '');
+      taskSpan.textContent = task.task;
+      taskSpan.contentEditable = true;
+      taskSpan.addEventListener('blur', e => { task.task = e.target.textContent.trim(); });
+      taskCell.appendChild(taskSpan);
+      row.appendChild(taskCell);
+
+      /* PIC */
+      const picCell = document.createElement('div');
+      picCell.className = 'bd-cell col-pic editable';
+      const picSpan = document.createElement('span');
+      picSpan.className = 'pic-text';
+      picSpan.textContent = task.pic;
+      picSpan.contentEditable = true;
+      picSpan.addEventListener('blur', e => { task.pic = e.target.textContent.trim(); });
+      picCell.appendChild(picSpan);
+      row.appendChild(picCell);
+
+      /* Status */
+      const statCell = document.createElement('div');
+      statCell.className = 'bd-cell col-status';
+      const badge = document.createElement('span');
+      badge.className = 'badge ' + (task.status === 'Done' ? 'done' : 'pending');
+      badge.textContent = task.status;
+      badge.style.cursor = 'pointer';
+      badge.title = 'Click to toggle status';
+      badge.addEventListener('click', () => {
+        task.status = task.status === 'Done' ? 'Pending' : 'Done';
+        renderGantt();
+      });
+      statCell.appendChild(badge);
+      row.appendChild(statCell);
+
+      /* Chart cell */
+      const chartCell = document.createElement('div');
+      chartCell.className = 'chart-cell col-chart';
+
+      // background grid
+      const bg = document.createElement('div');
+      bg.className = 'chart-cell-bg';
+      days.forEach((d, i) => {
+        const dc = document.createElement('div');
+        dc.className = 'chart-cell-bg-day' + (i === todayOff ? ' today-col' : '');
+        dc.style.width = DAY_PX + 'px';
+        dc.style.flexShrink = '0';
+        bg.appendChild(dc);
+      });
+      chartCell.appendChild(bg);
+
+      // today line
+      if (todayOff >= 0 && todayOff < days.length) {
+        const tl = document.createElement('div');
+        tl.className = 'today-line-overlay';
+        tl.style.left = (todayOff * DAY_PX + DAY_PX / 2 - 1) + 'px';
+        chartCell.appendChild(tl);
+      }
+
+      // bar
+      if (task.updated) {
+        const barStart = new Date(task.updated);
+        const barEnd   = task.completed ? new Date(task.completed) : TODAY;
+        const startOff = daysBetween(RANGE_START, barStart);
+        const endOff   = daysBetween(RANGE_START, barEnd);
+        const barW     = Math.max((endOff - startOff + 1) * DAY_PX, DAY_PX);
+        const barLeft  = startOff * DAY_PX;
+
+        if (barLeft < totalPx && barLeft >= -DAY_PX) {
+          let barClass = task.status === 'Done' ? 'done' : 'pending';
+          // overdue if pending and end is before today
+          if (task.status === 'Pending' && barEnd < TODAY && task.completed === '') barClass = 'overdue';
+
+          const bar = document.createElement('div');
+          bar.className = 'gantt-bar ' + barClass;
+          bar.style.left   = barLeft + 'px';
+          bar.style.width  = barW + 'px';
+          bar.textContent  = barW > 40 ? task.pic || task.status : '';
+
+          // tooltip
+          bar.addEventListener('mouseenter', (e) => showTooltip(e, task));
+          bar.addEventListener('mousemove',  (e) => moveTooltip(e));
+          bar.addEventListener('mouseleave', hideTooltip);
+
+          chartCell.appendChild(bar);
+        }
+      }
+
+      // target marker
+      if (task.target) {
+        const targetDate = new Date(task.target);
+        const targetOff  = daysBetween(RANGE_START, targetDate);
+        if (targetOff >= 0 && targetOff < days.length) {
+          const tm = document.createElement('div');
+          tm.className = 'target-marker';
+          tm.style.left = (targetOff * DAY_PX + DAY_PX / 2) + 'px';
+          tm.title = 'Target: ' + fmtDate(task.target);
+
+          const tl2 = document.createElement('div');
+          tl2.className = 'target-label';
+          tl2.style.left = (targetOff * DAY_PX + DAY_PX / 2) + 'px';
+          tl2.textContent = targetDate.getDate() + '/' + (targetDate.getMonth()+1);
+
+          chartCell.appendChild(tm);
+          chartCell.appendChild(tl2);
+        }
+      }
+
+      row.appendChild(chartCell);
+      grp.appendChild(row);
+    });
+
+    body.appendChild(grp);
+  });
+
+  table.appendChild(body);
+}
+
+/* ════════════════════════════════════════════════
+   TOOLTIP
+════════════════════════════════════════════════ */
+const tt = document.getElementById('tooltip');
+function showTooltip(e, task) {
+  document.getElementById('tt-title').textContent     = task.task.length > 60 ? task.task.slice(0,60)+'…' : task.task;
+  document.getElementById('tt-project').textContent   = task.project;
+  document.getElementById('tt-updated').textContent   = fmtDate(task.updated) || '—';
+  document.getElementById('tt-completed').textContent = fmtDate(task.completed) || '—';
+  document.getElementById('tt-pic').textContent       = task.pic || '—';
+  document.getElementById('tt-status').textContent    = task.status;
+  tt.classList.add('visible');
+  moveTooltip(e);
+}
+function moveTooltip(e) {
+  let x = e.clientX + 14, y = e.clientY - 10;
+  if (x + 250 > window.innerWidth) x = e.clientX - 260;
+  tt.style.left = x + 'px';
+  tt.style.top  = y + 'px';
+}
+function hideTooltip() { tt.classList.remove('visible'); }
+
+/* ════════════════════════════════════════════════
+   ZOOM
+════════════════════════════════════════════════ */
+function zoomIn()  { DAY_PX = Math.min(DAY_PX + 6, 60); renderGantt(); }
+function zoomOut() { DAY_PX = Math.max(DAY_PX - 6, 14); renderGantt(); }
+
+/* ════════════════════════════════════════════════
+   MODAL
+════════════════════════════════════════════════ */
+function openModal() {
+  document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('f-updated').value   = TODAY.toISOString().slice(0,10);
+  document.getElementById('f-completed').value = '';
+}
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modalOverlay'))
+    document.getElementById('modalOverlay').classList.remove('open');
+}
+function addTask() {
+  const task = {
+    project:   document.getElementById('f-project').value,
+    task:      document.getElementById('f-task').value.trim(),
+    pic:       document.getElementById('f-pic').value.trim(),
+    updated:   document.getElementById('f-updated').value,
+    completed: document.getElementById('f-completed').value,
+    status:    document.getElementById('f-status').value,
+  };
+  if (!task.task) { alert('Please enter a task description.'); return; }
+  TASKS.push(task);
+  closeModal();
+  renderGantt();
+}
+
+/* ════════════════════════════════════════════════
+   EXPORT DROPDOWN
+════════════════════════════════════════════════ */
+function toggleExportMenu() {
+  const dd = document.getElementById('exportDropdown');
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', e => {
+  if (!document.getElementById('exportMenu').contains(e.target)) {
+    document.getElementById('exportDropdown').style.display = 'none';
+  }
+});
+
+/* ════════════════════════════════════════════════
+   EXPORT PDF
+════════════════════════════════════════════════ */
+async function exportPDF() {
+  const btn = document.getElementById('exportBtn');
+  btn.textContent = '⏳ Generating…';
+  btn.disabled = true;
+
+  const controls = document.querySelector('.controls');
+  controls.style.visibility = 'hidden';
+
+  const scroll = document.querySelector('.gantt-scroll');
+  const origOverflow = scroll.style.overflow;
+  scroll.style.overflow = 'visible';
+
+  try {
+    const target = document.querySelector('.gantt-wrapper');
+
+    // Inject a PDF-only header
+    const printHeader = document.createElement('div');
+    printHeader.id = 'pdf-header';
+    printHeader.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 0 10px;margin-bottom:4px;border-bottom:1px solid #2a3340;';
+    printHeader.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:#58a6ff;box-shadow:0 0 10px #58a6ff;flex-shrink:0;"></div>
+        <span style="font-size:1.1rem;font-weight:600;color:#e6edf3;font-family:'DM Sans',sans-serif;">Project Tracker</span>
+        <span style="font-size:.78rem;color:#586374;font-family:'DM Sans',sans-serif;">— Gantt View</span>
+      </div>
+      <span style="font-family:'DM Mono',monospace;font-size:.76rem;color:#586374;background:#1c2230;padding:5px 10px;border-radius:6px;border:1px solid #2a3340;">${TODAY.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>
+    `;
+    target.insertBefore(printHeader, target.firstChild);
+
+    const canvas = await html2canvas(target, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#0d1117',
+      logging: false,
+      windowWidth: target.scrollWidth + 80,
+    });
+
+    target.removeChild(printHeader);
+
+    const { jsPDF } = window.jspdf;
+    const imgW = canvas.width;
+    const imgH = canvas.height;
+    const ratio = imgW / imgH;
+
+    // Fit to A3 landscape with margins
+    const pdfW = 420, pdfH = 297, margin = 10;
+    let pageW = pdfW - margin * 2;
+    let pageH = pageW / ratio;
+    if (pageH > pdfH - margin * 2) {
+      pageH = pdfH - margin * 2;
+      pageW = pageH * ratio;
+    }
+
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG',
+      (pdfW - pageW) / 2, (pdfH - pageH) / 2, pageW, pageH);
+    pdf.save('project_gantt_' + TODAY.toISOString().slice(0,10) + '.pdf');
+
+  } finally {
+    scroll.style.overflow = origOverflow;
+    controls.style.visibility = 'visible';
+    btn.textContent = '⬇ Export ▾';
+    btn.disabled = false;
+  }
+}
+
+
+function exportXLSX() {
+  // Dynamically load SheetJS if not already loaded
+  if (typeof XLSX === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.onload = () => _doExportXLSX();
+    document.head.appendChild(script);
+  } else {
+    _doExportXLSX();
+  }
+}
+
+function _doExportXLSX() {
+  const wb = XLSX.utils.book_new();
+  const ws_data = [];
+
+  // ── Title row ──
+  ws_data.push(['PROJECT TRACKER — GANTT EXPORT', '', '', '', '', '', '']);
+  ws_data.push(['Exported: ' + TODAY.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' }), '', '', '', '', '', '']);
+  ws_data.push([]); // blank
+
+  // ── Header row ──
+  ws_data.push(['Project', 'Task / Progress', 'PIC', 'Status', 'Date Updated', 'Date Completed', 'Duration (days)']);
+
+  // ── Group tasks by project ──
+  const groups = {};
+  TASKS.forEach(t => {
+    if (!groups[t.project]) groups[t.project] = [];
+    groups[t.project].push(t);
+  });
+
+  const rowMeta = []; // track row index for styling
+
+  Object.entries(groups).forEach(([project, ptasks]) => {
+    ptasks.forEach((task, ti) => {
+      const startDate = task.updated   ? new Date(task.updated)   : null;
+      const endDate   = task.completed ? new Date(task.completed) : (task.status === 'Pending' ? TODAY : null);
+      let duration = '';
+      if (startDate && endDate) {
+        duration = Math.round((endDate - startDate) / 86400000) + 1;
+      }
+      ws_data.push([
+        ti === 0 ? project : '',
+        task.task,
+        task.pic || '',
+        task.status,
+        task.updated   || '',
+        task.completed || '',
+        duration
+      ]);
+      rowMeta.push({ isFirst: ti === 0, status: task.status, project });
+    });
+    ws_data.push([]); // blank row between groups
+    rowMeta.push({ isBlank: true });
+  });
+
+  // ── Summary section ──
+  ws_data.push([]);
+  ws_data.push(['SUMMARY', '', '', '', '', '', '']);
+  const totalTasks   = TASKS.length;
+  const doneTasks    = TASKS.filter(t => t.status === 'Done').length;
+  const pendingTasks = TASKS.filter(t => t.status === 'Pending').length;
+  ws_data.push(['Total Tasks',   totalTasks,   '', '', '', '', '']);
+  ws_data.push(['Done',          doneTasks,    '', '', '', '', '']);
+  ws_data.push(['Pending',       pendingTasks, '', '', '', '', '']);
+  ws_data.push(['Completion %',  Math.round(doneTasks / totalTasks * 100) + '%', '', '', '', '', '']);
+
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+
+  // ── Column widths ──
+  ws['!cols'] = [
+    { wch: 28 },  // Project
+    { wch: 55 },  // Task
+    { wch: 28 },  // PIC
+    { wch: 12 },  // Status
+    { wch: 16 },  // Date Updated
+    { wch: 16 },  // Date Completed
+    { wch: 14 },  // Duration
+  ];
+
+  // ── Styling helper ──
+  function style(cell, s) {
+    if (!ws[cell]) return;
+    ws[cell].s = s;
+  }
+
+  // Colors
+  const CLR = {
+    darkBg:    '0D1117',
+    headerBg:  '161B22',
+    accentBg:  '1C2230',
+    done:      '1A6E2E',
+    doneTxt:   '3FB950',
+    pending:   '9A6E00',
+    pendingTxt:'F0883E',
+    accent:    '58A6FF',
+    white:     'E6EDF3',
+    muted:     '8B96A5',
+    dimMuted:  '586374',
+  };
+
+  const borderThin = { style: 'thin', color: { rgb: '2A3340' } };
+  const allBorders = { top: borderThin, bottom: borderThin, left: borderThin, right: borderThin };
+
+  const enc = XLSX.utils.encode_cell;
+
+  // Title rows styling
+  const titleStyle = {
+    font: { bold: true, sz: 14, color: { rgb: CLR.accent }, name: 'Arial' },
+    fill: { fgColor: { rgb: CLR.darkBg }, patternType: 'solid' },
+    alignment: { horizontal: 'left', vertical: 'center' }
+  };
+  const subtitleStyle = {
+    font: { sz: 10, color: { rgb: CLR.muted }, name: 'Arial' },
+    fill: { fgColor: { rgb: CLR.darkBg }, patternType: 'solid' },
+    alignment: { horizontal: 'left', vertical: 'center' }
+  };
+
+  // Style rows 1-3 (title + subtitle + blank)
+  for (let c = 0; c < 7; c++) {
+    const cell0 = enc({ r: 0, c });
+    const cell1 = enc({ r: 1, c });
+    const cell2 = enc({ r: 2, c });
+    if (ws[cell0]) ws[cell0].s = titleStyle;
+    if (ws[cell1]) ws[cell1].s = subtitleStyle;
+    if (ws[cell2]) ws[cell2] = { v: '', t: 's', s: { fill: { fgColor: { rgb: CLR.darkBg }, patternType: 'solid' } } };
+  }
+
+  // Header row (row index 3)
+  const headerStyle = {
+    font: { bold: true, sz: 10, color: { rgb: CLR.muted }, name: 'Arial' },
+    fill: { fgColor: { rgb: CLR.accentBg }, patternType: 'solid' },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: false },
+    border: allBorders
+  };
+  for (let c = 0; c < 7; c++) {
+    const cell = enc({ r: 3, c });
+    if (ws[cell]) ws[cell].s = headerStyle;
+  }
+
+  // Data rows start at row 4
+  let wsRow = 4;
+  rowMeta.forEach((meta, mi) => {
+    if (meta.isBlank) {
+      for (let c = 0; c < 7; c++) {
+        const cell = enc({ r: wsRow, c });
+        if (!ws[cell]) ws[cell] = { v: '', t: 's' };
+        ws[cell].s = { fill: { fgColor: { rgb: CLR.darkBg }, patternType: 'solid' } };
+      }
+      wsRow++;
+      return;
+    }
+
+    const isDone = meta.status === 'Done';
+
+    // Project cell (col 0)
+    const projCell = enc({ r: wsRow, c: 0 });
+    if (ws[projCell]) {
+      ws[projCell].s = {
+        font: { bold: true, sz: 10, color: { rgb: meta.isFirst ? CLR.accent : CLR.darkBg }, name: 'Arial' },
+        fill: { fgColor: { rgb: meta.isFirst ? '0E1A2E' : CLR.darkBg }, patternType: 'solid' },
+        alignment: { horizontal: 'left', vertical: 'center', wrapText: false },
+        border: allBorders
+      };
+    }
+
+    // Task cell (col 1)
+    const taskCell = enc({ r: wsRow, c: 1 });
+    if (ws[taskCell]) {
+      ws[taskCell].s = {
+        font: { sz: 9, color: { rgb: isDone ? CLR.white : CLR.pendingTxt }, italic: !isDone, name: 'Arial' },
+        fill: { fgColor: { rgb: CLR.darkBg }, patternType: 'solid' },
+        alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
+        border: allBorders
+      };
+    }
+
+    // PIC cell (col 2)
+    const picCell = enc({ r: wsRow, c: 2 });
+    if (ws[picCell]) {
+      ws[picCell].s = {
+        font: { sz: 9, color: { rgb: CLR.muted }, name: 'Arial' },
+        fill: { fgColor: { rgb: CLR.darkBg }, patternType: 'solid' },
+        alignment: { horizontal: 'left', vertical: 'center' },
+        border: allBorders
+      };
+    }
+
+    // Status cell (col 3)
+    const statCell = enc({ r: wsRow, c: 3 });
+    if (ws[statCell]) {
+      ws[statCell].s = {
+        font: { bold: true, sz: 9, color: { rgb: isDone ? CLR.doneTxt : CLR.pendingTxt }, name: 'Arial' },
+        fill: { fgColor: { rgb: isDone ? CLR.done : CLR.pending }, patternType: 'solid' },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: allBorders
+      };
+    }
+
+    // Date cells (cols 4, 5)
+    [4, 5].forEach(c => {
+      const dc = enc({ r: wsRow, c });
+      if (ws[dc]) {
+        ws[dc].s = {
+          font: { sz: 9, color: { rgb: CLR.muted }, name: 'Arial' },
+          fill: { fgColor: { rgb: CLR.darkBg }, patternType: 'solid' },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: allBorders
+        };
+      }
+    });
+
+    // Duration cell (col 6)
+    const durCell = enc({ r: wsRow, c: 6 });
+    if (ws[durCell]) {
+      ws[durCell].s = {
+        font: { sz: 9, color: { rgb: CLR.white }, name: 'Arial' },
+        fill: { fgColor: { rgb: CLR.darkBg }, patternType: 'solid' },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: allBorders
+      };
+    }
+
+    wsRow++;
+  });
+
+  // Summary section styling (find where it starts)
+  const summaryStartRow = wsRow + 1; // +1 for blank row before SUMMARY
+  const summaryHeaderStyle = {
+    font: { bold: true, sz: 11, color: { rgb: CLR.accent }, name: 'Arial' },
+    fill: { fgColor: { rgb: CLR.accentBg }, patternType: 'solid' },
+    border: allBorders
+  };
+  const summaryLabelStyle = {
+    font: { sz: 10, color: { rgb: CLR.muted }, name: 'Arial' },
+    fill: { fgColor: { rgb: CLR.darkBg }, patternType: 'solid' },
+    border: allBorders
+  };
+  const summaryValueStyle = {
+    font: { bold: true, sz: 10, color: { rgb: CLR.white }, name: 'Arial' },
+    fill: { fgColor: { rgb: CLR.darkBg }, patternType: 'solid' },
+    border: allBorders,
+    alignment: { horizontal: 'center' }
+  };
+
+  for (let c = 0; c < 7; c++) {
+    const sh = enc({ r: summaryStartRow, c });
+    if (ws[sh]) ws[sh].s = summaryHeaderStyle;
+  }
+  for (let r = summaryStartRow + 1; r <= summaryStartRow + 4; r++) {
+    const lc = enc({ r, c: 0 });
+    const vc = enc({ r, c: 1 });
+    if (ws[lc]) ws[lc].s = summaryLabelStyle;
+    if (ws[vc]) ws[vc].s = summaryValueStyle;
+    for (let c = 2; c < 7; c++) {
+      const bc = enc({ r, c });
+      if (!ws[bc]) ws[bc] = { v: '', t: 's' };
+      ws[bc].s = { fill: { fgColor: { rgb: CLR.darkBg }, patternType: 'solid' } };
+    }
+  }
+
+  // Row heights
+  ws['!rows'] = [];
+  ws['!rows'][0] = { hpt: 24 }; // title
+  ws['!rows'][1] = { hpt: 16 }; // subtitle
+  ws['!rows'][3] = { hpt: 20 }; // header
+
+  // Freeze top 4 rows
+  ws['!freeze'] = { xSplit: 0, ySplit: 4, topLeftCell: 'A5', activeCell: 'A5', sqref: 'A5' };
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Gantt Chart');
+
+  XLSX.writeFile(wb, 'project_gantt_' + TODAY.toISOString().slice(0,10) + '.xlsx');
+}
+
+/* ════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════ */
+populateFilters();
+renderGantt();
+</script>
+</body>
+</html>
