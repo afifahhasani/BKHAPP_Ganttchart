@@ -492,7 +492,7 @@
         <button onclick="exportXLSX();toggleExportMenu()" style="display:block;width:100%;padding:9px 16px;background:none;border:none;color:#e6edf3;font-family:var(--font-main);font-size:.82rem;font-weight:500;cursor:pointer;text-align:left;border-radius:0 0 6px 6px;" onmouseover="this.style.background='rgba(88,166,255,.1)'" onmouseout="this.style.background='none'">📊 Export as Excel</button>
       </div>
     </div>
-
+    <button class="btn btn-primary" onclick="openModal()">+ Add Task</button>
   </div>
 </header>
 
@@ -550,6 +550,7 @@
   <div class="tooltip-row"><span class="tooltip-label">Project:</span><span id="tt-project"></span></div>
   <div class="tooltip-row"><span class="tooltip-label">Updated:</span><span id="tt-updated"></span></div>
   <div class="tooltip-row"><span class="tooltip-label">Completed:</span><span id="tt-completed"></span></div>
+  <div class="tooltip-row"><span class="tooltip-label">Target:</span><span id="tt-target"></span></div>
   <div class="tooltip-row"><span class="tooltip-label">PIC:</span><span id="tt-pic"></span></div>
   <div class="tooltip-row"><span class="tooltip-label">Status:</span><span id="tt-status"></span></div>
 </div>
@@ -602,20 +603,22 @@ const TASKS = [
   /* Android Application */
   { project:'Android Application', task:'Move the testing database to AWS database server where current db is running', updated:'2026-03-30', completed:'2026-03-30', status:'Done', pic:'Jagan / Mohan' },
   { project:'Android Application', task:'Move UAT to AWS server test-ecas.bkhicd.com', updated:'2026-04-15', completed:'2026-04-15', status:'Done', pic:'Jagan / Mohan' },
-  { project:'Android Application', task:'Create Infobip Account', updated:'2026-04-21', completed:'2026-04-21', status:'Done', pic:'Syahiran' },
+  { project:'Android Application', task:'Create Infobip Account', updated:'2026-04-21', completed:'2026-04-20', status:'Done', pic:'Syahiran' },
   { project:'Android Application', task:'Acquire access to Meta Business Portfolio', updated:'2026-04-21', completed:'2026-04-20', status:'Done', pic:'Syahiran' },
   { project:'Android Application', task:'Receive new maxis physical sim', updated:'2026-04-21', completed:'2026-04-21', status:'Done', pic:'Syahiran' },
   { project:'Android Application', task:'Pending Maxis side to activate sim', updated:'2026-04-22', completed:'2026-04-22', status:'Done', pic:'Syahiran' },
   { project:'Android Application', task:'Connect Infobip, Whatsapp Business and Meta Business', updated:'2026-04-22', completed:'2026-04-22', status:'Done', pic:'Syahiran' },
   { project:'Android Application', task:'Provide Infobip info to Tootker to connect API', updated:'2026-04-22', completed:'2026-04-22', status:'Done', pic:'Syahiran' },
-  { project:'Android Application', task:'Access Provided, Template Registration', updated:'2026-04-23', completed:'', status:'Pending', pic:'Jagan', target:'' },
+  { project:'Android Application', task:'Setting up Meta Whatsapp account as we cancel using Infobip. Need to wait 30 days to get the blue checkmark before proceeding. Target 27/05/2026', updated:'2026-04-28', completed:'', status:'Pending', pic:'Syahiran', target:'2026-05-27' },
 
   /* OOCL System Integration */
   { project:'OOCL System Integration (CODECO)', task:'Create sample codeco for OOCL integration', updated:'2026-03-29', completed:'2026-04-14', status:'Done', pic:'Afifah / Michael' },
   { project:'OOCL System Integration (CODECO)', task:'Sample sent to Jagan. Pending Jagan site to implement. Target 29/04/2026', updated:'2026-04-20', completed:'', status:'Pending', pic:'Afifah / Jagan', target:'2026-04-29' },
+  { project:'OOCL System Integration (CODECO)', task:'Michael informs that their side is under development, expected 03/05/2026 to update us', updated:'2026-04-28', completed:'', status:'Pending', pic:'Afifah / Michael', target:'2026-05-03' },
 
   /* Container Assignment */
-  { project:'Container Assignment', task:'Tested the API – Only return 1 container. Jagan will make so user can choose from list of containers. Targeted to deliver to UAT by 24/04/2026', updated:'2026-04-20', completed:'', status:'Pending', pic:'Jagan', target:'2026-04-24' },
+  { project:'Container Assignment', task:'Tested the API – Only return 1 container at a time. Jagan will make so user can choose from list of containers. Targeted to deliver to UAT by 24/04/2026', updated:'2026-04-20', completed:'2026-04-24', status:'Done', pic:'Jagan' },
+  { project:'Container Assignment', task:'In testing, highlighted issues to developer team, target to demo to ops by 29/04/2026', updated:'2026-04-28', completed:'', status:'Pending', pic:'Afifah / Jagan', target:'2026-04-29' },
 
   /* Forecast Screen */
   { project:'Forecast Screen', task:'Supposed to be delivered on 17/04 but delayed as we prioritize CODECO integration first', updated:'2026-04-21', completed:'2026-04-21', status:'Done', pic:'' },
@@ -630,7 +633,7 @@ const TASKS = [
 /* ════════════════════════════════════════════════
    TIME RANGE
 ════════════════════════════════════════════════ */
-const TODAY = new Date('2026-04-23');
+const TODAY = new Date('2026-04-28');
 
 function fmtDate(d) {
   if (!d) return '';
@@ -807,30 +810,38 @@ function renderGantt() {
 
       /* project cell — only on first row of group */
       const projCell = document.createElement('div');
-      projCell.className = 'bd-cell col-project project-label';
+      projCell.className = 'bd-cell col-project editable project-label';
       if (ti === 0) {
         projCell.textContent = project;
-
+        projCell.contentEditable = true;
+        projCell.addEventListener('blur', e => {
+          const newName = e.target.textContent.trim();
+          const oldName = project;
+          TASKS.forEach(t => { if (t.project === oldName) t.project = newName; });
+          project = newName;
+        });
       }
       row.appendChild(projCell);
 
       /* task cell */
       const taskCell = document.createElement('div');
-      taskCell.className = 'bd-cell col-task';
+      taskCell.className = 'bd-cell col-task editable';
       const taskSpan = document.createElement('span');
       taskSpan.className = 'task-text' + (task.status === 'Pending' && ti > 0 ? ' note' : '');
       taskSpan.textContent = task.task;
-
+      taskSpan.contentEditable = true;
+      taskSpan.addEventListener('blur', e => { task.task = e.target.textContent.trim(); });
       taskCell.appendChild(taskSpan);
       row.appendChild(taskCell);
 
       /* PIC */
       const picCell = document.createElement('div');
-      picCell.className = 'bd-cell col-pic';
+      picCell.className = 'bd-cell col-pic editable';
       const picSpan = document.createElement('span');
       picSpan.className = 'pic-text';
       picSpan.textContent = task.pic;
-
+      picSpan.contentEditable = true;
+      picSpan.addEventListener('blur', e => { task.pic = e.target.textContent.trim(); });
       picCell.appendChild(picSpan);
       row.appendChild(picCell);
 
@@ -840,7 +851,12 @@ function renderGantt() {
       const badge = document.createElement('span');
       badge.className = 'badge ' + (task.status === 'Done' ? 'done' : 'pending');
       badge.textContent = task.status;
-      badge.style.cursor = 'default';
+      badge.style.cursor = 'pointer';
+      badge.title = 'Click to toggle status';
+      badge.addEventListener('click', () => {
+        task.status = task.status === 'Done' ? 'Pending' : 'Done';
+        renderGantt();
+      });
       statCell.appendChild(badge);
       row.appendChild(statCell);
 
@@ -921,6 +937,19 @@ function renderGantt() {
       grp.appendChild(row);
     });
 
+    // inline "+ add task" row per project
+    const addRow = document.createElement('div');
+    addRow.className = 'gantt-row';
+    addRow.style.cssText = 'cursor:pointer;opacity:.5;transition:opacity .15s;border-bottom:none;';
+    addRow.onmouseenter = () => addRow.style.opacity = '1';
+    addRow.onmouseleave = () => addRow.style.opacity = '.5';
+    addRow.onclick = () => { document.getElementById('f-project').value = project; openModal(); };
+    const addCell = document.createElement('div');
+    addCell.style.cssText = 'display:flex;align-items:center;gap:6px;padding:7px 14px;color:var(--accent);font-size:.78rem;font-weight:500;width:100%;';
+    addCell.innerHTML = '<span style="font-size:1.1rem;line-height:1">+</span> Add task to <em style="font-style:normal;font-weight:700;margin-left:3px">' + project + '</em>';
+    addRow.appendChild(addCell);
+    grp.appendChild(addRow);
+
     body.appendChild(grp);
   });
 
@@ -936,6 +965,7 @@ function showTooltip(e, task) {
   document.getElementById('tt-project').textContent   = task.project;
   document.getElementById('tt-updated').textContent   = fmtDate(task.updated) || '—';
   document.getElementById('tt-completed').textContent = fmtDate(task.completed) || '—';
+  document.getElementById('tt-target').textContent    = fmtDate(task.target) || '—';
   document.getElementById('tt-pic').textContent       = task.pic || '—';
   document.getElementById('tt-status').textContent    = task.status;
   tt.classList.add('visible');
